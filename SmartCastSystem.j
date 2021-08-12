@@ -151,7 +151,7 @@ library SmartCastSystem initializer Init requires DzAPIFrameHandle, DzAPIHardwar
         return 0
     endfunction
 
-    function SpriteClickEvent takes real x, real y, widget target returns Ptr
+    private function SpriteClickEvent takes real x, real y, widget target returns Ptr
         local Ptr pBlock = MemoryBlock.pHead
         local Ptr pTarget = GetWidgetAddress(target)
         set IntPtr(pBlock)[0] = pGameDll + 0xAAC124
@@ -165,7 +165,7 @@ library SmartCastSystem initializer Init requires DzAPIFrameHandle, DzAPIHardwar
         return pBlock
     endfunction
     
-    function TerrainClickEvent takes real x, real y returns Ptr
+    private function TerrainClickEvent takes real x, real y returns Ptr
         local Ptr pBlock = MemoryBlock.pHead
         local Ptr pTarget = GetWidgetAddress(target)
         set IntPtr(pBlock)[0] = pGameDll + 0xAAC118
@@ -216,7 +216,7 @@ library SmartCastSystem initializer Init requires DzAPIFrameHandle, DzAPIHardwar
         endif
     endfunction
 
-    private function A takes nothing returns nothing
+    private function SmartCastCallback takes nothing returns nothing
         call HandleSmartCast()
         call DzFrameSetUpdateCallback("")
     endfunction
@@ -246,8 +246,7 @@ library SmartCastSystem initializer Init requires DzAPIFrameHandle, DzAPIHardwar
         set targetX = DzGetMouseTerrainX()
         set targetY = DzGetMouseTerrainY()
         set target = JNGetMouseFocusUnit()
-
-        call DzFrameSetUpdateCallbackByCode(function A)
+        call DzFrameSetUpdateCallbackByCode(function SmartCastCallback)
     endfunction
 
     private function RegisterKey takes integer keycode returns nothing

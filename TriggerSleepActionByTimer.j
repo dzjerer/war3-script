@@ -1,9 +1,6 @@
 /*
  * TriggerSleepActionByTimer (v0.0)
  *
- * 주의사항:
- * - 정식 버전이 아닌 테스트 버전입니다. 버그가 있을 수 있습니다.
- *
  * 함수:
  *   function TriggerSleepActionByTimer takes real timeout returns nothing
  *     일정 시간 동안 대기합니다.

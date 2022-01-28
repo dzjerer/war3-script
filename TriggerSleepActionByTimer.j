@@ -1,5 +1,5 @@
 /*
- * TriggerSleepActionByTimer (v0.0)
+ * TriggerSleepActionByTimer (v0.0b)
  *
  * 함수:
  *   function TriggerSleepActionByTimer takes real timeout returns nothing
@@ -12,7 +12,7 @@ library TriggerSleepActionByTimer initializer Init requires /*
     */ TimerUtils
 
     globals
-        private constant real TIMEOUT_INFINITE = 1000000000.0
+        private constant real INFINITE_TIMEOUT = 1000000000.0
 
         private integer pGameWar3
     endglobals
@@ -63,8 +63,6 @@ library TriggerSleepActionByTimer initializer Init requires /*
     endfunction
 
     function TriggerSleepActionByTimer takes real timeout returns nothing
-        local integer v0 = sub_95DD0(5)
-        local IntPtr v1 = PtrPtr[IntPtr[v0 + 12] + 4 * IntPtr[v0 + 20] - 4]
         local Ptr pTriggerExecution = GetCurrentTriggerExecution()
         local timer t
 
@@ -75,7 +73,7 @@ library TriggerSleepActionByTimer initializer Init requires /*
             set t = null
         endif
 
-        call TriggerSleepAction(TIMEOUT_INFINITE)
+        call TriggerSleepAction(INFINITE_TIMEOUT)
     endfunction
 
 

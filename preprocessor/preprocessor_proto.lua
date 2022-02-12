@@ -11,12 +11,6 @@ do
     return text
   end
 
-  local function writeTextFile(filePath, text)
-    local file = io.open(filePath, "w")
-    file:write(text)
-    file:close()
-  end
-
   local function dostring(str)
     local f = assert(loadstring(str))
     return f()
@@ -30,34 +24,40 @@ do
     return PREPROCESSOR_VERSION
   end
 
-  function Preprocessor.new()
+  function Preprocessor.getInstance()
+    if Preprocessor._instance == nil then
+      Preprocessor._instance = Preprocessor._new()
+    end
+    return Preprocessor._instance
+  end
+
+  function Preprocessor._new()
     local self = setmetatable({}, Preprocessor)
-    self._scriptFilePath = nil
-    self._source = readTextFile(PREPROCESSOR_PATH)
+    self._jassFilePath = nil
+    self._source = readTextFile(self.getSourceFilePath())
     return self
   end
 
-  function Preprocessor.run(scriptFilePath)
-    local preprocessor = Preprocessor.new()
-    local success, ret = pcall(Preprocessor.process, preprocessor, scriptFilePath)
+  function Preprocessor.run(jassFilePath)
+    local preprocessor = Preprocessor.getInstance()
+    local success, ret = pcall(Preprocessor.process, preprocessor, jassFilePath)
     if preprocessor:isUpdated() then
       preprocessor:showMessage("Preprocessor updated. Please save the map again.")
       return 2
     end
-    if success then
-      return ret
-    else
+    if not success then
       preprocessor:showErrorMessage(ret)
       return 1
     end
+    return ret
   end
 
-  function Preprocessor:getPreprocessorPath()
+  function Preprocessor.getSourceFilePath()
     return PREPROCESSOR_PATH
   end
 
-  function Preprocessor:getScriptFilePath()
-    return self._scriptFilePath
+  function Preprocessor:getJassFilePath()
+    return self._jassFilePath
   end
 
   function Preprocessor:showMessage(msg)
@@ -69,28 +69,14 @@ do
   end
 
   function Preprocessor:isUpdated()
-    local currentSource = readTextFile(PREPROCESSOR_PATH)
+    local currentSource = readTextFile(self.getSourceFilePath())
     return currentSource ~= self._source
   end
 
-  function Preprocessor:process(scriptFilePath)
-    local old_preprocessor = preprocessor
-    preprocessor = self
-
-    self._scriptFilePath = scriptFilePath
-    local returnCode = self:_process()
-
-    preprocessor = old_preprocessor
-    return returnCode
-  end
-
-  function Preprocessor:_process(scriptFilePath)
-    local script = readTextFile(self:getScriptFilePath())
-
+  function Preprocessor:process(jassFilePath)
+    self._jassFilePath = jassFilePath
+    local script = readTextFile(jassFilePath)
     self:_executePreprocessBlocks(script)
-    jass = self:_removePreprocessBlocks(script)
-    writeTextFile(self:getScriptFilePath(), jass)
-
     return 0
   end
 
@@ -107,10 +93,6 @@ do
     if firstErr ~= nil then
       error(firstErr)
     end
-  end
-
-  function Preprocessor:_removePreprocessBlocks(script)
-    return script:gsub("[\r\n](%s*//!%spreprocessor%s*[\r\n].-[\r\n]%s*//!%s*endpreprocessor%s-)[\r\n]", "\n")
   end
 
   return Preprocessor

@@ -7,8 +7,8 @@ do
   WEHACK_INJECTION_TEMPLATE = [[
 -- Preprocessor:begin
 -- Loader.version: 0.0.0
-        if toolresult == 0 then
-            local Preprocessor = dofile("{PREPROCESSOR_PATH}")
+        if toolresult == 0 and grim.exists("{PREPROCESSOR_PATH}") then
+            Preprocessor = dofile("{PREPROCESSOR_PATH}")
             toolresult = Preprocessor.run("{JASS_SCRIPT_PATH}")
         end
 -- Preprocessor:end
@@ -28,12 +28,6 @@ do
     return text
   end
 
-  local function writeTextFile(filePath, text)
-    local file = io.open(filePath, "w")
-    file:write(text)
-    file:close()
-  end
-
   local function dostring(str)
     local f = assert(loadstring(str))
     return f()
@@ -47,34 +41,40 @@ do
     return PREPROCESSOR_VERSION
   end
 
-  function Preprocessor.new()
+  function Preprocessor.getInstance()
+    if Preprocessor._instance == nil then
+      Preprocessor._instance = Preprocessor._new()
+    end
+    return Preprocessor._instance
+  end
+
+  function Preprocessor._new()
     local self = setmetatable({}, Preprocessor)
-    self._scriptFilePath = nil
-    self._source = readTextFile(PREPROCESSOR_PATH)
+    self._jassFilePath = nil
+    self._source = readTextFile(self.getSourceFilePath())
     return self
   end
 
-  function Preprocessor.run(scriptFilePath)
-    local preprocessor = Preprocessor.new()
-    local success, ret = pcall(Preprocessor.process, preprocessor, scriptFilePath)
+  function Preprocessor.run(jassFilePath)
+    local preprocessor = Preprocessor.getInstance()
+    local success, ret = pcall(Preprocessor.process, preprocessor, jassFilePath)
     if preprocessor:isUpdated() then
       preprocessor:showMessage("Preprocessor updated. Please save the map again.")
       return 2
     end
-    if success then
-      return ret
-    else
+    if not success then
       preprocessor:showErrorMessage(ret)
       return 1
     end
+    return ret
   end
 
-  function Preprocessor:getPreprocessorPath()
+  function Preprocessor.getSourceFilePath()
     return PREPROCESSOR_PATH
   end
 
-  function Preprocessor:getScriptFilePath()
-    return self._scriptFilePath
+  function Preprocessor:getJassFilePath()
+    return self._jassFilePath
   end
 
   function Preprocessor:showMessage(msg)
@@ -86,28 +86,14 @@ do
   end
 
   function Preprocessor:isUpdated()
-    local currentSource = readTextFile(PREPROCESSOR_PATH)
+    local currentSource = readTextFile(self.getSourceFilePath())
     return currentSource ~= self._source
   end
 
-  function Preprocessor:process(scriptFilePath)
-    local old_preprocessor = preprocessor
-    preprocessor = self
-
-    self._scriptFilePath = scriptFilePath
-    local returnCode = self:_process()
-
-    preprocessor = old_preprocessor
-    return returnCode
-  end
-
-  function Preprocessor:_process(scriptFilePath)
-    local script = readTextFile(self:getScriptFilePath())
-
+  function Preprocessor:process(jassFilePath)
+    self._jassFilePath = jassFilePath
+    local script = readTextFile(jassFilePath)
     self:_executePreprocessBlocks(script)
-    jass = self:_removePreprocessBlocks(script)
-    writeTextFile(self:getScriptFilePath(), jass)
-
     return 0
   end
 
@@ -126,15 +112,39 @@ do
     end
   end
 
-  function Preprocessor:_removePreprocessBlocks(script)
-    return script:gsub("[\r\n](%s*//!%spreprocessor%s*[\r\n].-[\r\n]%s*//!%s*endpreprocessor%s-)[\r\n]", "\n")
-  end
-
   return Preprocessor
 end
 ]]
 
-  function msgbox(msg)
+local function copyFile(src, dst)
+  os.execute('copy "' .. src .. '" "' .. dst .. '"')
+end
+
+local function readTextFile(filePath)
+  local text = nil
+  local file = io.open(filePath, "r")
+  text = file:read("*all")
+  file:close()
+  return text
+end
+
+local function writeTextFile(filePath, text)
+  local file = io.open(filePath, "w")
+  file:write(text)
+  file:close()
+end
+
+local function getWehackInjectionCode()
+  local preprocessorPath = PREPROCESSOR_PATH:gsub('\\', '\\\\')
+  local jassScriptPath = JASS_SCRIPT_PATH:gsub('\\', '\\\\')
+
+  local code = WEHACK_INJECTION_TEMPLATE
+  code = code:gsub("{PREPROCESSOR_PATH}", preprocessorPath)
+  code = code:gsub("{JASS_SCRIPT_PATH}", jassScriptPath)
+  return code
+end
+
+local function msgbox(msg)
     local filePath = TEMP_DIR .. "\\temp.vbs"
     local script
     msg = msg:gsub('"', '""')
@@ -146,7 +156,7 @@ end
     os.execute(filePath)
   end
 
-  function isFile(filePath)
+  local function isFile(filePath)
     local file = io.open(filePath, "r")
     if file ~= nil then
       file:close()
@@ -156,72 +166,47 @@ end
     end
   end
 
-  function copyFile(src, dst)
-    os.execute('copy "' .. src .. '" "' .. dst .. '"')
-  end
-
-  function readTextFile(filePath)
-    local text = nil
-    local file = io.open(filePath, "r")
-    text = file:read("*all")
-    file:close()
-    return text
-  end
-
-  function writeTextFile(filePath, text)
-    local file = io.open(filePath, "w")
-    file:write(text)
-    file:close()
-  end
-
-  function checkLauncherInstalled()
+  local function checkLauncherInstalled()
     local script = readTextFile(WEHACK_FILE_PATH)
     return script:match("[\r\n]%s*-- Preprocessor:begin%s") ~= nil
   end
 
-  function installLauncher()
+  local function installLauncher()
     local script = readTextFile(WEHACK_FILE_PATH)
     local pos = script:find("[\r\n]+[^\r\n]+%Wtoolresult%s*==%s*0%W")
     local injection = getWehackInjectionCode()
-    newScript = script:sub(1, pos) .. injection .. script:sub(pos+1)
+    local newScript = script:sub(1, pos) .. injection .. script:sub(pos+1)
     writeTextFile(WEHACK_FILE_PATH, newScript)
     return script ~= newScript
   end
 
-  function installPreprocessor()
+  local function installPreprocessor()
     writeTextFile(PREPROCESSOR_PATH, PREPROCESSOR_PROTO_LUA)
     return true
   end
 
-  function uninstallLauncher()
+  local function uninstallLauncher()
     local script = readTextFile(WEHACK_FILE_PATH)
     script = script:gsub("([\r\n]%s*-- Preprocessor:begin%s*[\r\n].-[\r\n]%s*-- Preprocessor:end%s*)([\r\n])", "%2")
     writeTextFile(WEHACK_FILE_PATH, script)
   end
 
-  function getWehackInjectionCode()
-    code = WEHACK_INJECTION_TEMPLATE
-    code = code:gsub("{PREPROCESSOR_PATH}", PREPROCESSOR_PATH:gsub('\\', '\\\\'))
-    code = code:gsub("{JASS_SCRIPT_PATH}", JASS_SCRIPT_PATH:gsub('\\', '\\\\'))
-    return code
-  end
-
-  function checkBackupExists(filePath)
+  local function checkBackupExists(filePath)
     local backupFilePath = filePath .. ".bak"
     return isFile(backupFilePath)
   end
 
-  function backupFile(filePath)
+  local function backupFile(filePath)
     local backupFilePath = filePath .. ".bak"
     copyFile(filePath, backupFilePath)
   end
 
-  function checkJNEditor()
+  local function checkJNEditor()
     local script = readTextFile(WEHACK_FILE_PATH)
     return script:match("JassNative Editor") ~= nil
   end
 
-  function main()
+  local function main()
     if not isFile(WEHACK_FILE_PATH) then
       msgbox("Preprocessor installation failed. '" .. WEHACK_FILE_PATH .. "' does not exist.")
       return 1

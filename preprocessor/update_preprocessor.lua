@@ -2,7 +2,7 @@ do
   local PREPROCESSOR_PATH = preprocessor:getPreprocessorPath()
   local PREPROCESSOR_LUA = [=[
 do
-  local PREPROCESSOR_VERSION = "2.0.0"
+  local PREPROCESSOR_VERSION = "2.0.1"
   local PREPROCESSOR_PATH = debug.getinfo(1, "S").source:sub(2)
 
 
@@ -120,31 +120,33 @@ do
   end
 
   function Preprocessor:_extractPreprocessBlocks(script)
-    local jass = ""
+    local jass = {}
     local blocks = {}
     local block = nil
 
     for line in iterLines(script) do
-      command = line:match("^%s*//!%s*(%w+)%s*$")
+      local command = line:match("^%s*//!%s*(%w+)%s*$")
       if command == "preprocessor" then
         if block ~= nil then
           error("Missing '//! endpreprocess'")
         end
-        block = ""
+        block = {}
       elseif command == "endpreprocessor" then
         if block == nil then
           error("Missing '//! preprocess'")
         end
+        block = table.concat(block)
         table.insert(blocks, block)
         block = nil
       else
         if block == nil then
-          jass = jass .. line
+          table.insert(jass, line)
         else
-          block = block .. line
+          table.insert(block, line)
         end
       end
     end
+    jass = table.concat(jass)
     return blocks, jass
   end
 

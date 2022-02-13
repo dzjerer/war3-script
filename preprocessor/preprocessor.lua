@@ -1,5 +1,5 @@
 do
-  local PREPROCESSOR_VERSION = "2.0.1"
+  local PREPROCESSOR_VERSION = "2.0.0"
   local PREPROCESSOR_PATH = debug.getinfo(1, "S").source:sub(2)
 
 

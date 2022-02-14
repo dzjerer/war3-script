@@ -16,23 +16,23 @@ Preprocessor.getInstance():register(function ()
   function InlineConditionPreprocessor.new()
     local self = setmetatable({}, InlineConditionPreprocessor)
     self._funcTable = {}
+    self._referenceTable = {}
     return self
   end
 
   function InlineConditionPreprocessor:process(jass)
-    jass = self:_registerConditionFunctions(jass)
-    return self:_replaceConditionFunctionCalls(jass)
+    self:_registerConditionFunctions(jass)
+    jass = self:_replaceConditionFunctionCalls(jass)
+    self:_countFunctionReference(jass)
+    jass = self:_replaceNotReferencedFunctions(jass)
+    return jass
   end
 
   function InlineConditionPreprocessor:_registerConditionFunctions(jass)
     local pattern = "function Trig_[%w_]+_Func[%w_]+ takes nothing returns boolean[\r\n]+.-[\r\n]+endfunction"
-    local jass = string.gsub(jass, pattern, function (funcJass)
-      if self:_registerConditionFunction(funcJass) then
-        return ""
-      else
-        return funcJass
-      end
-    end)
+    for funcJass in string.gmatch(jass, pattern) do
+      self:_registerConditionFunction(funcJass)
+    end
     return jass
   end
 
@@ -158,6 +158,24 @@ Preprocessor.getInstance():register(function ()
       end
     end
     jass = string.gsub(jass, "([^%w_])(Trig_[%w_]+_Func[%w_]+)([ \t]*%([ \t]*%))", replaceCondition)
+    return jass
+  end
+
+  function InlineConditionPreprocessor:_countFunctionReference(jass)
+    for funcName in string.gmatch(jass, "[^\r\n]function[ \t]+(Trig_[%w_]+_Func[%w_]+)[ \t]*[^t]") do
+      self._referenceTable[funcName] = true
+    end
+  end
+
+  function InlineConditionPreprocessor:_replaceNotReferencedFunctions(jass)
+    local pattern = "(function )(Trig_[%w_]+_Func[%w_]+)( takes nothing returns boolean[\r\n]+.-[\r\n]+endfunction)"
+    jass = string.gsub(jass, pattern, function (prefix, name, suffix)
+      local funcJass = prefix .. name .. suffix
+      if self._funcTable[name] == nil or self._referenceTable[name] == true then
+        return funcJass
+      end
+      return ""
+    end)
     return jass
   end
 
